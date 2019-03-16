@@ -20,6 +20,7 @@ app.use(bodyParser.json()).use(bodyParser.urlencoded({ extended: false }));
 app.use("/auth",userRoutes);
 app.use("/community",communityRoutes);
 app.use("/post",postRoute);
+
 mongoose.connect(process.env.database_url, { useNewUrlParser: true }, (err) => {
     if (err) {
         console.log(err)
