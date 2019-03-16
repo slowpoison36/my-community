@@ -11,6 +11,7 @@ dotenv.config();
 const userRoutes = require("./routes/auth");
 const communityRoutes = require("./routes/community");
 const postRoute = require("./routes/post");
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.static(path.join(__dirname,'public','dist','community')));
@@ -29,8 +30,8 @@ mongoose.connect(process.env.database_url, { useNewUrlParser: true }, (err) => {
 })
 
 app.get("*",(req,res,next)=>{
-    res.sendFile(path.join(__dirname,'public','dist','community'));
+    res.sendFile(path.join(__dirname,'public','dist','community','index.html'));
 })
 
 
-app.listen(3001 || process.env.PORT, () => console.log("Server has started"));
+app.listen(PORT, () => console.log("Server has started"));
