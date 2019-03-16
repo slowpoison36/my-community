@@ -30,6 +30,7 @@ mongoose.connect(process.env.database_url, { useNewUrlParser: true }, (err) => {
 })
 
 app.get("*",(req,res,next)=>{
+    
     res.sendFile(path.join(__dirname,'public','dist','community','index.html'));
 })
 
