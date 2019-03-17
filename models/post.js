@@ -6,7 +6,7 @@ const postSchema = new mongoose.Schema({
     tag:{type:mongoose.Schema.Types.ObjectId,ref:"Tag"},
     owner:{type:mongoose.Schema.Types.ObjectId,ref:"User"},
     created:{type:Date,default:Date.now},
-    readBy:Array
+    readBy:[]
 })
 
 

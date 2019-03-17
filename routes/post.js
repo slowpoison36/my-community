@@ -104,13 +104,14 @@ router.get("/readby/:postId", authCheck, (req, res, next) => {
     Post.findById(postId).then(foundPost => {
         if (foundPost) {
             User.findById(userId).then(foundUser => {
-                if (!foundUser) {
+                if (foundUser) {
                     foundPost.readBy.push(req.decoded.user.name);
-                    res.status(204).json({ success: true });
-
+                    foundPost.save((err, saved) => {
+                        return res.status(200).json({ success: true });
+                    })
+                }else{
+                    return res.status(400).json({success:false,message: "User Not Found"});
                 }
-            })
-            foundPost.save(() => {
             })
         }
     })
@@ -124,7 +125,7 @@ router.get('/tags', authCheck, (req, res, next) => {
 
 router.get('/tag/:name', authCheck, (req, res, next) => {
 
-    Tag.findOne({ name: req.params.name }).populate("posts").then(foundPost => {
+    Tag.findOne({ name: req.params.name }).populate({ path: 'posts', populate: { path: 'owner', select: 'name' } }).then(foundPost => {
         if (foundPost) {
             res.status(200).json({ success: true, tagPost: foundPost })
         } else {
