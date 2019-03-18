@@ -17,15 +17,36 @@ const transporter = nodemailer.createTransport(sendGridNodemailer({
     }
 }))
 
+const multer = require("multer");
+const cloudinary = require("cloudinary");
+const cloudinaryStorage = require("multer-storage-cloudinary");
 
+cloudinary.config({
+    cloud_name: process.env.cloud_name,
+    api_key: process.env.cloudinary_api_key,
+    api_secret: process.env.cloudinary_api_secret
+})
 
-router.post("/register", (req, res, next) => {
+const storage = cloudinaryStorage({
+    cloudinary: cloudinary,
+    folder: "Profile",
+    allowedFormats: ["jpg", "png","jpeg"],
+    transformation: [{ width: 500, height: 500, crop: "limit" }]
+});
+const parser = multer({ storage: storage });
+
+router.post("/register", parser.single("picture"), (req, res, next) => {
     let user = new User();
     user.name = req.body.name;
     user.email = req.body.email;
+    user.intro = req.body.intro;
+    user.picture =  req.file && req.file.url || "NA";
+    user.phone = req.body.phone;
+    user.profession = req.body.profession;
     user.gender = req.body.gender || "unspecified";
     user.password = req.body.password;
     user.community = req.body.community;
+    console.log(user.community, req.body.community);
     User.findOne({ $or: [{ name: req.body.name }, { email: user.email }] }).then(existingUser => {
         if (existingUser) {
             return res.status(400).json({ success: false, message: "User already exists", user: { name: existingUser.name, email: existingUser.email } });
@@ -38,7 +59,8 @@ router.post("/register", (req, res, next) => {
             user.tokenExpiration = Date.now() + 3600000;
 
             user.save((err, savedUser) => {
-                Community.findById(user.community)
+                console.log(req.body.community);
+                Community.findOne({_id:req.body.community})
                     .then(foundCommunity => {
                         if (foundCommunity) {
                             foundCommunity.members.push(savedUser._id);
@@ -53,14 +75,10 @@ router.post("/register", (req, res, next) => {
                                      <p><a href="http://localhost:4200/register/${user.tokenString}"> Click this link </a>
                                     `
                                 }).then(() => {
-                                    let token = jwt.sign({
-                                        user: savedUser
-                                    }, process.env.secret_key, { expiresIn: "2d" })
-                                    return res.status(201)
-                                        .json(
+
+                                    return res.status(201).json(
                                             {
-                                                success:true, 
-                                                token:token,
+                                                success: true,
                                                 message: "Registration complete waiting for email verification",
                                                 isVerified: false
                                             });
@@ -68,7 +86,7 @@ router.post("/register", (req, res, next) => {
                             });
                         } else {
                             //if new comunity needs to be create here it goes;
-                            return res.status(400).json({message:"Community not found"});
+                            return res.status(400).json({ message: "Community not found" });
                         }
                     }).catch(err => res.status(500).json({ err: err }));
 
@@ -119,10 +137,10 @@ router.get("/verify/:token", (req, res, next) => {
             }
             user.isVerified = true;
             user.tokenExpiration = Date.now() - 1000;
-            user.save((err,savedUser) => {
+            user.save((err, savedUser) => {
                 if (err)
                     return next(err);
-                res.status(200).json({ isVerified: true, success:true });
+                res.status(200).json({ isVerified: true, success: true });
             });
         })
 })

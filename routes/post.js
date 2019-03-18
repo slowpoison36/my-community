@@ -144,7 +144,11 @@ router.get('/tags', authCheck, (req, res, next) => {
 
 router.get('/tag/:name', authCheck, (req, res, next) => {
 
-    Tag.findOne({ name: req.params.name }).populate({ path: 'posts', populate: { path: 'owner', select: 'name' } }).then(foundPost => {
+    Tag.findOne({ name: req.params.name })
+    .populate({path:"posts",populate:{path:"owner",select:"name -_id"}})
+    .populate({ path: 'posts', 
+        populate: { path: 'comments',populate:{path:"user",select:"name -_id"}} })
+    .then(foundPost => {
         if (foundPost) {
             res.status(200).json({ success: true, tagPost: foundPost })
         } else {
@@ -160,8 +164,8 @@ router.post("/add-comment", authCheck, (req, res, next) => {
     const user = req.decoded.user._id;
     comment.description = req.body.description;
     comment.post = req.body.postId;
-    comment.users.push(user);
-
+    comment.user =user;
+    
     comment.save((err, commentSaved) => {
         if (err)
             return next(err)
@@ -169,7 +173,7 @@ router.post("/add-comment", authCheck, (req, res, next) => {
             if (foundPost) {
                 foundPost.comments.push(commentSaved._id);
                 foundPost.save();
-                res.status(201).json({ success: true, message: "Comment successfully added",commentId:commentSaved._id });
+                res.status(201).json({ success: true, message: "Comment successfully added",comment:commentSaved });
             } else {
                 res.status(400).json({ success: false, message: "No post found" });
             }
