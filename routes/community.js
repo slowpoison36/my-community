@@ -55,7 +55,7 @@ router.post('/create',
 })
 
 router.get('/all-community',(req,res,next)=>{
-    Community.find({}).select("name").then(community=>{
+    Community.find({}).then(community=>{
         if(community){
              res.status(200).json({success:true,community:community})
         }
@@ -64,9 +64,9 @@ router.get('/all-community',(req,res,next)=>{
     })
 })
 
-router.get('/my-community/:name',authCheck,(req,res,next)=>{
-    Community.findOne({name:req.params.name})
-        .populate("members")
+router.get('/my-community/:id',authCheck,(req,res,next)=>{
+    Community.findById(req.params.id)
+        .populate("members","-password -tokenExpiration -tokenString")
         .then(community=>{
             if(community){
                 res.status(200).json({success:true,community:community});

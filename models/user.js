@@ -5,11 +5,15 @@ const userSchema = new mongoose.Schema({
     name:{type:String,lowercase:true,unique:true},
     email:{type:String,lowercase:true,unique:true,required:true},
     password:{type:String,minlength:5},
+    phone:String,
+    profession:String,
     gender:String,
+    picture:String,
     isVerified:Boolean,
     tokenString:String,
     tokenExpiration:Date,
-    community:{type:mongoose.Schema.Types.ObjectId,ref:"Community"}
+    community:{type:mongoose.Schema.Types.ObjectId,ref:"Community"},
+    posts:[{type:mongoose.Schema.Types.ObjectId,ref:"Post"}]
 })
 
 userSchema.pre("save", function(next){

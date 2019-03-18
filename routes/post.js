@@ -4,6 +4,7 @@ const Post = require("../models/post");
 const authCheck = require("../middleware/index");
 const User = require("../models/user");
 const Tag = require("../models/tag");
+const Comment = require("../models/comment");
 
 // const imgUpload = require("../config/cloudinary")(cloudinary, cloudinaryStorage, multer, "Tags",500,500 )
 const multer = require("multer");
@@ -49,7 +50,17 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
                     if (foundTag) {
                         foundTag.posts.push(savedPost._id);
                         foundTag.save((err, tagSaved) => {
-                            return res.status(201).json({ message: "Post Created Successfully", success: true })
+                            User.findById(post.owner, (err, foundUser) => {
+                                if (err) {
+                                    return next(err)
+                                }
+
+                                foundUser.posts.push(savedPost._id);
+                                foundUser.save((err, savedUser) => {
+
+                                    return res.status(201).json({ message: "Post Created Successfully", success: true })
+                                })
+                            })
 
                         });
                     }
@@ -105,12 +116,20 @@ router.get("/readby/:postId", authCheck, (req, res, next) => {
         if (foundPost) {
             User.findById(userId).then(foundUser => {
                 if (foundUser) {
-                    foundPost.readBy.push(req.decoded.user.name);
-                    foundPost.save((err, saved) => {
-                        return res.status(200).json({ success: true });
-                    })
-                }else{
-                    return res.status(400).json({success:false,message: "User Not Found"});
+                    let postReader = req.decoded.user.name;
+                    let index = foundPost.readBy.indexOf(postReader);
+                    if (index === -1) {
+                        foundPost.readBy.push(postReader);
+                        foundPost.save((err, saved) => {
+                            return res.status(200).json({ success: true });
+                        })
+
+                    } else {
+                        return res.status(400).json({ success: false })
+                    }
+
+                } else {
+                    return res.status(400).json({ success: false, message: "User Not Found" });
                 }
             })
         }
@@ -132,6 +151,31 @@ router.get('/tag/:name', authCheck, (req, res, next) => {
             res.status(404).json({ success: false, message: "No post found" });
         }
     }).catch(err => res.status(400).json({ success: false, message: err }))
+
+})
+
+router.post("/add-comment", authCheck, (req, res, next) => {
+
+    const comment = new Comment();
+    const user = req.decoded.user._id;
+    comment.description = req.body.description;
+    comment.post = req.body.postId;
+    comment.users.push(user);
+
+    comment.save((err, commentSaved) => {
+        if (err)
+            return next(err)
+        Post.findById(comment.post).then(foundPost => {
+            if (foundPost) {
+                foundPost.comments.push(commentSaved._id);
+                foundPost.save();
+                res.status(201).json({ success: true, message: "Comment successfully added",commentId:commentSaved._id });
+            } else {
+                res.status(400).json({ success: false, message: "No post found" });
+            }
+        }).catch(err => res.status(500).json({ error: err }));
+    })
+
 
 })
 

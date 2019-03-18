@@ -412,16 +412,16 @@ IN THE SOFTWARE.
 @angular/common
 MIT
 
-@angular/animations
-MIT
-
 @angular/platform-browser
 MIT
 
-@angular/router
+@angular/forms
 MIT
 
-@angular/forms
+@angular/animations
+MIT
+
+@angular/router
 MIT
 
 @auth0/angular-jwt
