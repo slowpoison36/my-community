@@ -108,6 +108,7 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
     req.body.name.indexOf("@") > -1 ? email = req.body.name : name = req.body.name;
     User.findOne({ $or: [{ name: name }, { email: email }] })
         .populate("community")
+        .populate("posts")
         .then(foundUser => {
             if (!foundUser) {
                 return res.status(404).json({ message: "User not found" })
