@@ -10,6 +10,7 @@ dotenv.config();
 const Community = require("../models/community")
 
 const User = require("../models/user");
+const authCheck = require("../middleware/index");
 
 const transporter = nodemailer.createTransport(sendGridNodemailer({
     auth: {
@@ -72,7 +73,7 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
                                     html: `<p>You registration is yet to be completed. Please click the link below to complete our
                                         registration.
                                     </p>
-                                     <p><a href="http://localhost:4200/register/${user.tokenString}"> Click this link </a>
+                                     <p><a href="https://our-community.herokuapp.com/register/${user.tokenString}"> Click this link </a>
                                     `
                                 }).then(() => {
 
@@ -146,6 +147,34 @@ router.get("/verify/:token", (req, res, next) => {
         })
 })
 
+router.get('/members',authCheck,(req,res,next)=>{
+     let loggedUser = req.decoded.user._id
+    User.find({})
+         .populate("posts")
+         .populate("community")
+         .select(['-password','-tokenString'])
+         .exec((err,foundUsers)=>{
+            if(err){
+                return next(err);
+            }
+
+            res.status(200).json({success:true,users:foundUsers});
+         })
+       
+})
+
+router.get('/member/:id',authCheck,(req,res,next)=>{
+    User.findOne({_id:req.params.id})
+        .populate("posts")
+        .populate("community")
+        .select(['-password','-tokenString'])
+        .exec((err,foundUser)=>{
+            if(err){
+                return next(err);
+            }
+            res.status(200).json({success:true,user:foundUser});
+        })
+})
 
 
 
