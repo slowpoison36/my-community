@@ -31,7 +31,7 @@ cloudinary.config({
 const storage = cloudinaryStorage({
     cloudinary: cloudinary,
     folder: "Profile",
-    allowedFormats: ["jpg", "png","jpeg"],
+    allowedFormats: ["jpg", "png", "jpeg"],
     transformation: [{ width: 500, height: 500, crop: "limit" }]
 });
 const parser = multer({ storage: storage });
@@ -41,7 +41,7 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
     user.name = req.body.name;
     user.email = req.body.email;
     user.intro = req.body.intro;
-    user.picture =  req.file && req.file.url || "NA";
+    user.picture = req.file && req.file.url || "NA";
     user.phone = req.body.phone;
     user.profession = req.body.profession;
     user.gender = req.body.gender || "unspecified";
@@ -61,7 +61,7 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
 
             user.save((err, savedUser) => {
                 console.log(req.body.community);
-                Community.findOne({_id:req.body.community})
+                Community.findOne({ _id: req.body.community })
                     .then(foundCommunity => {
                         if (foundCommunity) {
                             foundCommunity.members.push(savedUser._id);
@@ -78,11 +78,11 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
                                 }).then(() => {
 
                                     return res.status(201).json(
-                                            {
-                                                success: true,
-                                                message: "Registration complete waiting for email verification",
-                                                isVerified: false
-                                            });
+                                        {
+                                            success: true,
+                                            message: "Registration complete waiting for email verification",
+                                            isVerified: false
+                                        });
                                 })
                             });
                         } else {
@@ -131,6 +131,7 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
 })
 
 
+//this endpoint is to verify user registration
 router.get("/verify/:token", (req, res, next) => {
     User.findOne({ tokenString: req.params.token, tokenExpiration: { $gt: Date.now() } })
         .then(user => {
@@ -147,35 +148,67 @@ router.get("/verify/:token", (req, res, next) => {
         })
 })
 
-router.get('/members',authCheck,(req,res,next)=>{
-     let loggedUser = req.decoded.user._id
+
+//gets all the users
+router.get('/members', authCheck, (req, res, next) => {
+    let loggedUser = req.decoded.user._id
     User.find({})
-         .populate("posts")
-         .populate("community")
-         .select(['-password','-tokenString'])
-         .exec((err,foundUsers)=>{
-            if(err){
-                return next(err);
-            }
-
-            res.status(200).json({success:true,users:foundUsers});
-         })
-       
-})
-
-router.get('/member/:id',authCheck,(req,res,next)=>{
-    User.findOne({_id:req.params.id})
         .populate("posts")
         .populate("community")
-        .select(['-password','-tokenString'])
-        .exec((err,foundUser)=>{
-            if(err){
+        .select(['-password', '-tokenString'])
+        .exec((err, foundUsers) => {
+            if (err) {
                 return next(err);
             }
-            res.status(200).json({success:true,user:foundUser});
+
+            foundUsers = foundUsers.filter(user => user._id != loggedUser);
+            res.status(200).json({ success: true, users: foundUsers });
+        })
+
+})
+
+//get user based on the id passed
+
+router.get('/member/:id', authCheck, (req, res, next) => {
+    User.findOne({ _id: req.params.id })
+        .populate("posts")
+        .populate("community")
+        .select(['-password', '-tokenString'])
+        .exec((err, foundUser) => {
+            if (err) {
+                return next(err);
+            }
+            res.status(200).json({ success: true, user: foundUser });
         })
 })
 
+
+// update user 
+
+router.put('/profile/update',[authCheck,parser.single("profilePic")], (req, res, next) => {
+    let userId = req.decoded.user._id;
+    User.findById(userId).then(foundUser => {
+        if (foundUser) {
+            if (req.body.name) foundUser.name = req.body.name;
+            if (req.body.email)  foundUser.email = req.body.email;
+            if (req.body.intro) foundUser.intro = req.body.intro;
+             if(req.file && req.file.url) foundUser.picture = req.file.url;
+            if (req.body.phone)foundUser.phone = req.body.phone;
+            if (req.body.profession) foundUser.profession = req.body.profession;
+            if (req.body.gender) foundUser.gender = req.body.gender;
+            if (req.body.password) foundUser.password = req.body.password;
+
+            foundUser.save((err,userDataSaved)=>{
+                return res.status(200).json({success:true})
+            });
+           
+        }else{
+            res.status(404).json({message:"User not found",success:false});
+        }
+
+    }).catch(err => res.status(500).json({ error: err }));
+
+})
 
 
 
