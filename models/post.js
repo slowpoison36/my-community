@@ -8,6 +8,7 @@ const postSchema = new mongoose.Schema({
     owner:{type:mongoose.Schema.Types.ObjectId,ref:"User"},
     comments:[{type:mongoose.Schema.Types.ObjectId,ref:"Comment"}],
     created:{type:Date,default:Date.now},
+    featured:Boolean,
     readBy:[]
 })
 

@@ -5,13 +5,12 @@ module.exports = function (req, res, next) {
     if (token) {
         jwt.verify(token, process.env.secret_key,(err, decoded) => {
             if (err) {
-                res.status(401).json({
+                res.status(403).json({
                     success: false,
                     message: "Failed to authenticate token"
                 })
             } else {
                 req.decoded = decoded;
-                
                 next();
             }
         })

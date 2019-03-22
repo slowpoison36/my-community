@@ -41,7 +41,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
         post.owner = req.body.user;
 
         if (req.body.tag !== 'Unknown') {
-            post.postPic = req.files[0].url;
+            if(req.files && req.files.length) post.postPic = req.files[0].url;
             post.tag = req.body.tag;
             post.save((err, savedPost) => {
                 Tag.findById(req.body.tag, (err, foundTag) => {
@@ -59,7 +59,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
                                 foundUser.posts.push(savedPost._id);
                                 foundUser.save((err, savedUser) => {
 
-                                    return res.status(201).json({ message: "Post Created Successfully", success: true })
+                                    return res.status(201).json({ message: "Post Created Successfully", success: true, postId: savedPost._id })
                                 })
                             })
 
@@ -71,24 +71,24 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
             })
         } else {
             let tagUrl, postUrl;
-              if(req.files.length>1){
-                    tagUrl = req.files[0].url;
-                    postUrl = req.files[1].url;
-              }else{
+            if (req.files.length > 1) {
                 postUrl = req.files[0].url;
-              }
+                tagUrl = req.files[1].url;
+            } else {
+                tagUrl = req.files[0].url;
+            }
             let newTag = req.body.addTag.toLowerCase();
             Tag.findOne({ name: newTag }).then(tags => {
 
                 if (!tags) {
                     tag.name = newTag.trim().replace(/\s+/g, "-");
-                    if(tagUrl) {tag.image = tagUrl;}
+                    if (tagUrl) { tag.image = tagUrl; }
                     tag.save((err, savedTag) => {
                         if (err) {
                             return next(err);
                         }
                         post.tag = savedTag._id;
-                         if(postUrl){ post.postPic = postUrl;}
+                        if (postUrl) { post.postPic = postUrl; }
                         post.save((err, savedPost) => {
                             tag.posts.push(savedPost._id);
                             tag.save((err, tagSaved) => {
@@ -96,7 +96,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
                                     if (foundUser) {
                                         foundUser.posts.push(savedPost._id);
                                         foundUser.save((err, savedUserPost) => {
-                                            return res.status(201).json({ message: "Post Created Successfully", success: true })
+                                            return res.status(201).json({ message: "Post Created Successfully", success: true,postId:savedPost._id })
                                         })
 
                                     } else {
@@ -171,23 +171,23 @@ router.get("/readby/:postId", authCheck, (req, res, next) => {
 
 router.get('/tags', authCheck, (req, res, next) => {
     let perPage = 5
-    let pageNum = req.query.pageNum  || 0;
+    let pageNum = req.query.pageNum || 0;
     Tag.find({})
-    .skip(perPage * pageNum)
-    .limit(perPage)
-    .exec((err,foundTags) => {
-        if(err){
-            return next(err);
-        }
-
-        Tag.countDocuments((err,totalTags)=>{
-            if(err){
-                return next(err)
+        .skip(perPage * pageNum)
+        .limit(perPage)
+        .exec((err, foundTags) => {
+            if (err) {
+                return next(err);
             }
-            res.status(200).json({ success: true, tags: foundTags,total: totalTags })
 
+            Tag.countDocuments((err, totalTags) => {
+                if (err) {
+                    return next(err)
+                }
+                res.status(200).json({ success: true, tags: foundTags, total: totalTags })
+
+            })
         })
-    })
 })
 
 router.get('/tag/:name', authCheck, (req, res, next) => {
@@ -233,4 +233,33 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 
 })
 
+
+router.put("/feature/:id", authCheck, async (req, res, next) => {
+    try {
+        let allPost = await Post.find({
+            created: {
+                $gt: Date.now() - 1000 * 60 * 60 * 24,
+                $lte: Date.now()
+            }
+        })
+
+        if(allPost) {
+            allPost = allPost.filter(post => post.featured);
+        }
+
+        if (!allPost.length) {
+            let foundPost = await Post.findById(req.params.id)
+            foundPost.featured = true;
+            let savedPost = await foundPost.save();
+            return res.status(201).json({ success: true, message: "Your Post has been featured" })
+        }
+
+        return res.status(409).json({ success: false, message: "Sorry!,Other Post is already featured" })
+
+
+    } catch (err) {
+        res.status(500).json({ error: err });
+    }
+
+})
 module.exports = router;

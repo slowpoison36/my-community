@@ -50,7 +50,13 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
     console.log(user.community, req.body.community);
     User.findOne({ $or: [{ name: req.body.name }, { email: user.email }] }).then(existingUser => {
         if (existingUser) {
-            return res.status(400).json({ success: false, message: "User already exists", user: { name: existingUser.name, email: existingUser.email } });
+            let username;
+             if(req.body.name==existingUser.name)
+                   username  = req.body.name;
+             else if(req.body.email === existingUser.email)
+                   username = req.body.email;      
+
+            return res.status(400).json({ success: false, message: `${username} already exists` });
         }
         crypto.randomBytes(32, (err, buffer) => {
             if (err) {
@@ -116,7 +122,7 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
             } else {
                 const passwordCheck = foundUser.comparePassword(req.body.password);
                 if (!passwordCheck) {
-                    return res.status(401).json({ success: false });
+                    return res.status(400).json({ success: false,message:"Invalid Password" });
                 }
 
                 const token = jwt.sign({
