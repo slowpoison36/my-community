@@ -14,7 +14,8 @@ const userSchema = new mongoose.Schema({
     tokenString:String,
     tokenExpiration:Date,
     community:{type:mongoose.Schema.Types.ObjectId,ref:"Community"},
-    posts:[{type:mongoose.Schema.Types.ObjectId,ref:"Post"}]
+    posts:[{type:mongoose.Schema.Types.ObjectId,ref:"Post"}],
+    created:{type:Date,default:Date.now}
 })
 
 userSchema.pre("save", function(next){

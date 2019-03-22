@@ -111,7 +111,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
 
                     });
                 } else {
-                    return res.status(400).json({ message: `${newTag} already Exist`, success: false })
+                    return res.status(400).json({ message: `${newTag} Tag is already taken`, success: false })
 
 
                 }

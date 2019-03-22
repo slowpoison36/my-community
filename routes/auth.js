@@ -152,7 +152,11 @@ router.get("/verify/:token", (req, res, next) => {
 //gets all the users
 router.get('/members', authCheck, (req, res, next) => {
     let loggedUser = req.decoded.user._id
+    let pageNum = req.query.pageNum || 0;
+    let pageSize = 6;
     User.find({})
+        .skip(pageSize * pageNum)
+        .limit(pageSize)
         .populate("posts")
         .populate("community")
         .select(['-password', '-tokenString'])
@@ -161,8 +165,13 @@ router.get('/members', authCheck, (req, res, next) => {
                 return next(err);
             }
 
-            foundUsers = foundUsers.filter(user => user._id != loggedUser);
-            res.status(200).json({ success: true, users: foundUsers });
+            User.countDocuments((err,count)=>{
+                 if(err) 
+                     return next(err);
+
+                     foundUsers = foundUsers.filter(user => user._id != loggedUser);
+                     res.status(200).json({ success: true, users: foundUsers,total:count });    
+            })  
         })
 
 })
