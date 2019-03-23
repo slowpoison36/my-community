@@ -41,7 +41,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
         post.owner = req.body.user;
 
         if (req.body.tag !== 'Unknown') {
-            if(req.files && req.files.length) post.postPic = req.files[0].url;
+            if (req.files && req.files.length) post.postPic = req.files[0].url;
             post.tag = req.body.tag;
             post.save((err, savedPost) => {
                 Tag.findById(req.body.tag, (err, foundTag) => {
@@ -96,7 +96,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
                                     if (foundUser) {
                                         foundUser.posts.push(savedPost._id);
                                         foundUser.save((err, savedUserPost) => {
-                                            return res.status(201).json({ message: "Post Created Successfully", success: true,postId:savedPost._id })
+                                            return res.status(201).json({ message: "Post Created Successfully", success: true, postId: savedPost._id })
                                         })
 
                                     } else {
@@ -169,12 +169,14 @@ router.get("/readby/:postId", authCheck, (req, res, next) => {
     })
 })
 
+
 router.get('/tags', authCheck, (req, res, next) => {
     let perPage = 5
     let pageNum = req.query.pageNum || 0;
     Tag.find({})
         .skip(perPage * pageNum)
         .limit(perPage)
+        .sort({ created: "-1" })
         .exec((err, foundTags) => {
             if (err) {
                 return next(err);
@@ -188,6 +190,16 @@ router.get('/tags', authCheck, (req, res, next) => {
 
             })
         })
+})
+
+router.get('/all-tags', authCheck, async (req, res, next) => {
+    try {
+        const foundTags = await Tag.find({});
+
+        return res.status(200).json({ success: true, tags: foundTags });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err })
+    }
 })
 
 router.get('/tag/:name', authCheck, (req, res, next) => {
@@ -233,17 +245,17 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 
 })
 
-
+//sets a post to be featured if none within 24 hours range
 router.put("/feature/:id", authCheck, async (req, res, next) => {
     try {
         let allPost = await Post.find({
             created: {
-                $gt: Date.now() - 1000 * 60 * 60 * 24,
+                $gt: Date.now() - 1000 * 60 * 60 * 12,// 12 hours
                 $lte: Date.now()
             }
         })
 
-        if(allPost) {
+        if (allPost) {
             allPost = allPost.filter(post => post.featured);
         }
 
@@ -261,5 +273,34 @@ router.put("/feature/:id", authCheck, async (req, res, next) => {
         res.status(500).json({ error: err });
     }
 
+})
+
+router.get('/featurepost', authCheck, async (req, res, next) => {
+    try {
+        const featuredPost = await Post.find({
+            $and: [{ featured: true }, {
+                created: {
+                    $gt: Date.now() - 1000 * 60 * 60 * 24 * 7,//week
+                    $lte: Date.now()
+                }
+            }]
+        })
+        .sort({ created: "-1" })
+        .limit(1)
+            .populate('tag', 'name')
+        if (featuredPost) {
+            return res.status(200).json({ success: true, post: featuredPost[0] })
+        }
+        const anyFeatured = await Post.findOne({ featured: true });
+        if (anyFeatured) {
+
+            return res.status(200).json({ success: true, post: anyFeatured })
+        }
+
+        return res.status(404).json({ success: false, message: "No featured post found" });
+    } catch (err) {
+        res.status(500).json({ error: err });
+
+    }
 })
 module.exports = router;
