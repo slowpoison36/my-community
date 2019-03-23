@@ -47,7 +47,6 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
     user.gender = req.body.gender || "unspecified";
     user.password = req.body.password;
     user.community = req.body.community;
-    console.log(user.community, req.body.community);
     User.findOne({ $or: [{ name: req.body.name }, { email: user.email }] }).then(existingUser => {
         if (existingUser) {
             let username;
@@ -66,7 +65,6 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
             user.tokenExpiration = Date.now() + 3600000;
 
             user.save((err, savedUser) => {
-                console.log(req.body.community);
                 Community.findOne({ _id: req.body.community })
                     .then(foundCommunity => {
                         if (foundCommunity) {
@@ -186,8 +184,9 @@ router.get('/members', authCheck, (req, res, next) => {
 
 router.get('/member/:id', authCheck, (req, res, next) => {
     User.findOne({ _id: req.params.id })
-        .populate("posts")
+        .populate({ path: "posts", populate: { path: "tag"} })
         .populate("community")
+        .populate("tag")
         .select(['-password', '-tokenString'])
         .exec((err, foundUser) => {
             if (err) {

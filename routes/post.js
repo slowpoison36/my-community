@@ -285,8 +285,8 @@ router.get('/featurepost', authCheck, async (req, res, next) => {
                 }
             }]
         })
-        .sort({ created: "-1" })
-        .limit(1)
+            .sort({ created: "-1" })
+            .limit(1)
             .populate('tag', 'name')
         if (featuredPost) {
             return res.status(200).json({ success: true, post: featuredPost[0] })
@@ -302,5 +302,33 @@ router.get('/featurepost', authCheck, async (req, res, next) => {
         res.status(500).json({ error: err });
 
     }
+})
+
+
+router.delete("/:id", authCheck, async (req, res, next) => {
+    try {
+        await Comment.deleteMany({ post: req.params.id });
+        await Post.findByIdAndDelete(req.params.id);
+         Tag.findOne({posts:req.params.id},(err,tag)=>{
+                 tag.posts.remove(req.params.id);
+                 tag.save((err)=>{
+                      if(err){
+                          return next(err);
+                      }
+
+                      return res.status(200).json({ success: true });
+                 })
+         })
+
+      
+
+    } catch (err) {
+        res.status(500).json({ error: err });
+    }
+
+})
+
+router.delete("/tag/post/:id", async(req,res,next)=>{
+
 })
 module.exports = router;
