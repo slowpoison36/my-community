@@ -249,7 +249,7 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 router.put("/feature/:id", authCheck, async (req, res, next) => {
     //1000 * 60 * 60 * 2 = 2 hours
     try {
-        let allPost = await Post.find({$and:[{ featured:true, created: { $gt: Date.now() - 1000 * 60 * 10 , $lte: Date.now() }}]})
+        let allPost = await Post.find({$and:[{ featured:true, created: { $gt: Date.now() - 1000 * 60 * 10 , $lte: Date.now() }}]}).sort({created:"-1"})
 
         if (!allPost.length) {
             let foundPost = await Post.findById(req.params.id)
@@ -258,8 +258,11 @@ router.put("/feature/:id", authCheck, async (req, res, next) => {
             let savedPost = await foundPost.save();
             return res.status(201).json({ success: true, message: "Your Post has been featured" })
         }
+           let now = new Date().getMinutes();
+           let time = allPost[0].created.getMinutes();
+           let diff = 10 - (now - time);
 
-        return res.status(409).json({ success: false, message: "Cannot be featured,other Post is being featured!! Check back again after 10 minutes" })
+        return res.status(409).json({ success: false, message: `Cannot be featured,other Post is being featured!! Check back again after ${diff} minutes` })
 
 
     } catch (err) {
