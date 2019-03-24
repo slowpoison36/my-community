@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
     isVerified:Boolean,
     tokenString:String,
     tokenExpiration:Date,
+    lastActive:Date,
     community:{type:mongoose.Schema.Types.ObjectId,ref:"Community"},
     posts:[{type:mongoose.Schema.Types.ObjectId,ref:"Post"}],
     created:{type:Date,default:Date.now}

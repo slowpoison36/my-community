@@ -245,28 +245,21 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 
 })
 
-//sets a post to be featured if none within 24 hours range
+//sets a post to be featured if none within 10 mins range
 router.put("/feature/:id", authCheck, async (req, res, next) => {
+    //1000 * 60 * 60 * 2 = 2 hours
     try {
-        let allPost = await Post.find({
-            created: {
-                $gt: Date.now() - 1000 * 60 * 60 * 12,// 12 hours
-                $lte: Date.now()
-            }
-        })
-
-        if (allPost) {
-            allPost = allPost.filter(post => post.featured);
-        }
+        let allPost = await Post.find({$and:[{ featured:true, created: { $gt: Date.now() - 1000 * 60 * 10 , $lte: Date.now() }}]})
 
         if (!allPost.length) {
             let foundPost = await Post.findById(req.params.id)
+            foundPost.created = Date.now();
             foundPost.featured = true;
             let savedPost = await foundPost.save();
             return res.status(201).json({ success: true, message: "Your Post has been featured" })
         }
 
-        return res.status(409).json({ success: false, message: "Sorry!,Other Post is already featured" })
+        return res.status(409).json({ success: false, message: "Cannot be featured,other Post is being featured!! Check back again after 10 minutes" })
 
 
     } catch (err) {
