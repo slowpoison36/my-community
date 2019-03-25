@@ -245,7 +245,7 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 
 })
 
-//sets a post to be featured if none within 10 mins range
+//sets a post to be featured if none witin
 router.put("/feature/:id", authCheck, async (req, res, next) => {
     //1000 * 60 * 60 * 2 = 2 hours
     try {
