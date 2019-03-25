@@ -41,7 +41,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
         post.owner = req.body.user;
 
         if (req.body.tag !== 'Unknown') {
-            if (req.files && req.files.length) post.postPic = req.files[0].url;
+            if (req.files && req.files.length) {post.postPic.img = req.files[0].url; post.postPic.publicId = req.files[0].public_id}
             post.tag = req.body.tag;
             post.save((err, savedPost) => {
                 Tag.findById(req.body.tag, (err, foundTag) => {
@@ -88,7 +88,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
                             return next(err);
                         }
                         post.tag = savedTag._id;
-                        if (postUrl) { post.postPic = postUrl; }
+                        if (postUrl) { post.postPic.img = postUrl; post.postPic.publicId = req.files[0].public_id }
                         post.save((err, savedPost) => {
                             tag.posts.push(savedPost._id);
                             tag.save((err, tagSaved) => {
@@ -249,10 +249,13 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 router.put("/feature/:id", authCheck, async (req, res, next) => {
     //1000 * 60 * 60 * 2 = 2 hours
     try {
-        let allPost = await Post.find({$and:[{ featured:true, created: { $gt: Date.now() - 1000 * 60 * 10 , $lte: Date.now() }}]}).sort({created:"-1"})
+        let allPost = await Post.find({$and:[{ featured:true, created: { $gt: Date.now() - 1000 * 60 * 60 * 2, $lte: Date.now() }}]}).sort({created:"-1"})
 
         if (!allPost.length) {
             let foundPost = await Post.findById(req.params.id)
+            if(foundPost.featured){
+                return res.status(400).json({success:false,message:"This post has already been featured"});
+            }
             foundPost.created = Date.now();
             foundPost.featured = true;
             let savedPost = await foundPost.save();
@@ -260,7 +263,9 @@ router.put("/feature/:id", authCheck, async (req, res, next) => {
         }
            let now = new Date().getMinutes();
            let time = allPost[0].created.getMinutes();
-           let diff = 10 - (now - time);
+           //let diff = (((60* 2) - (now - time))/60).toFixed(2);
+           let diff = ((60* 2) - (now - time));
+
 
         return res.status(409).json({ success: false, message: `Cannot be featured,other Post is being featured!! Check back again after ${diff} minutes` })
 
@@ -303,6 +308,11 @@ router.get('/featurepost', authCheck, async (req, res, next) => {
 
 router.delete("/:id", authCheck, async (req, res, next) => {
     try {
+        const post = await Post.findById(req.params.id);
+        if(post && post.postPic.publicId){
+            await cloudinary.v2.uploader.destroy(post.postPic.publicId);
+        } 
+        
         await Comment.deleteMany({ post: req.params.id });
         await Post.findByIdAndDelete(req.params.id);
          Tag.findOne({posts:req.params.id},(err,tag)=>{
@@ -324,7 +334,4 @@ router.delete("/:id", authCheck, async (req, res, next) => {
 
 })
 
-router.delete("/tag/post/:id", async(req,res,next)=>{
-
-})
 module.exports = router;
