@@ -52,10 +52,10 @@ router.get("/:id", authCheck, async (req, res, next) => {
 router.get("/user/:userId", authCheck, async (req, res, next) => {
     try {
         const msgContainer = req.query.messageContainer || "Unread";
-        const pageNum = req.query.pageNum || 0;
-        const pageSize = req.query.pageSize || 5;
+        const pageNum = +req.query.pageNum || 0;
+        const pageSize = +req.query.pageSize || 5;
         const userId = req.params.userId;
-        const totalMsg = await Message.countDocuments();
+        // const totalMsg = await Message.countDocuments();
         let messages = await Message.find()
             .populate({ path: "sender", select: "name picture gender" })
             .populate({ path: "recepient", select: "name picture gender" })
@@ -65,17 +65,19 @@ router.get("/user/:userId", authCheck, async (req, res, next) => {
 
         switch (msgContainer) {
             case "Inbox":
-                messages = messages.filter(m => m.recepient._id == userId && m.recepientDeleted==false);
+                messages = messages.filter(m => m.recepient._id == userId && m.recepientDeleted == false);
                 break;
 
             case "Outbox":
-                messages = messages.filter(m => m.sender._id == userId && m.senderDeleted==false);
+                messages = messages.filter(m => m.sender._id == userId && m.senderDeleted == false);
                 break;
 
             default:
-                messages = messages.filter(m => m.isRead == false && m.recepientDeleted==false && m.recepient._id == userId);
+                messages = messages.filter(m => m.isRead == false && m.recepientDeleted == false && m.recepient._id == userId);
 
         }
+
+        const totalMsg = messages && messages.length
 
         return res.status(200).json({ message: messages, total: totalMsg });
 
@@ -114,42 +116,75 @@ router.get("/user/:userId/:recepientId", authCheck, async (req, res, next) => {
 
 })
 
-
+// deleting the message from both side will only delete the msg
 router.post("/:userId/:id", authCheck, async (req, res, next) => {
 
     try {
         const userId = req.params.userId;
         const msgId = req.params.id;
 
-        const message = await Message.findById(msgId)
-        console.log(message);
-                             
+        const message = await Message.findOne({ _id: msgId })
+            .populate({ path: "sender", select: "name picture gender" })
+            .populate({ path: "recepient", select: "name picture gender" })
+
         if (!message) {
             return res.status(404).json({ message: "Message not found" });
         }
 
-        if (message.sender=== userId) {
+        if (message.sender.id === userId) {
             message.senderDeleted = true;
             await message.save();
         }
 
-        if (message.recepient === userId) {
+        if (message.recepient.id === userId) {
             message.recepientDeleted = true;
-             await message.save();
+            await message.save();
         }
 
         if (message.senderDeleted && message.recepientDeleted) {
             message.remove();
             await message.save();
-             return res.status(204);
+            return res.status(204);
         }
 
-        return res.status(200).json({success:true});
+        return res.status(200).json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, error: err });
 
     }
 
+})
+
+//api to mark the message as read
+router.post("/read/:userId/:msgId", authCheck, async (req, res, next) => {
+    try {
+
+        const userId = req.params.userId;
+        const msgId = req.params.msgId;
+        const message = await Message.findOne({ _id: msgId })
+            .populate({ path: "sender", select: "name picture gender" })
+            .populate({ path: "recepient", select: "name picture gender" })
+
+        console.log(message);
+
+        if (message) {
+            if (message.recepient.id !== userId) {
+                return res.status(401);
+            }
+
+            message.isRead = true;
+            message.messageRead = Date.now();
+            await message.save()
+
+            return res.status(204)
+
+        } else {
+            return res.status(404).json({ message: "Message not found" });
+        }
+
+    } catch (err) {
+        res.status(500).json({ error: err })
+    }
 })
 
 module.exports = router;
