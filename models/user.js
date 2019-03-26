@@ -16,6 +16,8 @@ const userSchema = new mongoose.Schema({
     lastActive:Date,
     community:{type:mongoose.Schema.Types.ObjectId,ref:"Community"},
     posts:[{type:mongoose.Schema.Types.ObjectId,ref:"Post"}],
+    messagesSent:[{type:mongoose.Schema.Types.ObjectId,ref:"Message"}],
+    messagesReceived:[{type:mongoose.Schema.Types.ObjectId,ref:"Message"}],
     created:{type:Date,default:Date.now}
 })
 

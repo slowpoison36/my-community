@@ -11,6 +11,7 @@ dotenv.config();
 const userRoutes = require("./routes/auth");
 const communityRoutes = require("./routes/community");
 const postRoute = require("./routes/post");
+const messageRoute = require("./routes/message");
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
@@ -21,6 +22,7 @@ app.use(bodyParser.json()).use(bodyParser.urlencoded({ extended: false }));
 app.use("/auth",userRoutes);
 app.use("/community",communityRoutes);
 app.use("/post",postRoute);
+app.use("/message",messageRoute);
 
 mongoose.connect(process.env.database_url, { useNewUrlParser: true }, (err) => {
     if (err) {
