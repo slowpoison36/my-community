@@ -55,12 +55,12 @@ router.get("/user/:userId", authCheck, async (req, res, next) => {
         const pageNum = +req.query.pageNum || 0;
         const pageSize = +req.query.pageSize || 5;
         const userId = req.params.userId;
-        // const totalMsg = await Message.countDocuments();
+        let totalMsg = await Message.countDocuments();
         let messages = await Message.find()
             .populate({ path: "sender", select: "name picture gender" })
             .populate({ path: "recepient", select: "name picture gender" })
             .skip(pageNum * pageSize)
-            .limit(pageNum)
+            .limit(pageSize)
             .sort({ dateSent: "-1" })
 
         switch (msgContainer) {
@@ -77,7 +77,6 @@ router.get("/user/:userId", authCheck, async (req, res, next) => {
 
         }
 
-        const totalMsg = messages && messages.length
 
         return res.status(200).json({ message: messages, total: totalMsg });
 
@@ -164,8 +163,6 @@ router.post("/read/:userId/:msgId", authCheck, async (req, res, next) => {
         const message = await Message.findOne({ _id: msgId })
             .populate({ path: "sender", select: "name picture gender" })
             .populate({ path: "recepient", select: "name picture gender" })
-
-        console.log(message);
 
         if (message) {
             if (message.recepient.id !== userId) {
