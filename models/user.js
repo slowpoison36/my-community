@@ -18,7 +18,9 @@ const userSchema = new mongoose.Schema({
     posts:[{type:mongoose.Schema.Types.ObjectId,ref:"Post"}],
     messagesSent:[{type:mongoose.Schema.Types.ObjectId,ref:"Message"}],
     messagesReceived:[{type:mongoose.Schema.Types.ObjectId,ref:"Message"}],
-    created:{type:Date,default:Date.now}
+    created:{type:Date,default:Date.now},
+    accDisabled:{type:Boolean,default:false},
+    role:{type:String,default:"member"}
 })
 
 userSchema.pre("save", function(next){

@@ -50,10 +50,10 @@ router.post("/register", parser.single("picture"), (req, res, next) => {
     User.findOne({ $or: [{ name: req.body.name }, { email: user.email }] }).then(existingUser => {
         if (existingUser) {
             let username;
-             if(req.body.name==existingUser.name)
-                   username  = req.body.name;
-             else if(req.body.email === existingUser.email)
-                   username = req.body.email;      
+            if (req.body.name == existingUser.name)
+                username = req.body.name;
+            else if (req.body.email === existingUser.email)
+                username = req.body.email;
 
             return res.status(400).json({ success: false, message: `${username} already exists` });
         }
@@ -115,12 +115,15 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
         .populate("community")
         .populate("posts")
         .then(foundUser => {
+            if(foundUser.accDisabled) {
+                  return res.status(403).json({success:false,message:"Sorry!,Your account has been disabled"})
+            }
             if (!foundUser) {
                 return res.status(404).json({ message: "User not found" })
             } else {
                 const passwordCheck = foundUser.comparePassword(req.body.password);
                 if (!passwordCheck) {
-                    return res.status(400).json({ success: false,message:"Invalid Password" });
+                    return res.status(400).json({ success: false, message: "Invalid Password" });
                 }
 
                 const token = jwt.sign({
@@ -169,13 +172,13 @@ router.get('/members', authCheck, (req, res, next) => {
                 return next(err);
             }
 
-            User.countDocuments((err,count)=>{
-                 if(err) 
-                     return next(err);
+            User.countDocuments((err, count) => {
+                if (err)
+                    return next(err);
 
-                     foundUsers = foundUsers.filter(user => user._id != loggedUser);
-                     res.status(200).json({ success: true, users: foundUsers,total:count });    
-            })  
+                foundUsers = foundUsers.filter(user => user._id != loggedUser);
+                res.status(200).json({ success: true, users: foundUsers, total: count });
+            })
         })
 
 })
@@ -184,7 +187,7 @@ router.get('/members', authCheck, (req, res, next) => {
 
 router.get('/member/:id', authCheck, (req, res, next) => {
     User.findOne({ _id: req.params.id })
-        .populate({ path: "posts", populate: { path: "tag"} })
+        .populate({ path: "posts", populate: { path: "tag" } })
         .populate("community")
         .populate("tag")
         .select(['-password', '-tokenString'])
@@ -199,29 +202,50 @@ router.get('/member/:id', authCheck, (req, res, next) => {
 
 // update user 
 
-router.put('/profile/update',[authCheck,parser.single("profilePic")], (req, res, next) => {
+router.put('/profile/update', [authCheck, parser.single("profilePic")], (req, res, next) => {
     let userId = req.decoded.user._id;
     User.findById(userId).then(foundUser => {
         if (foundUser) {
             if (req.body.name) foundUser.name = req.body.name;
-            if (req.body.email)  foundUser.email = req.body.email;
+            if (req.body.email) foundUser.email = req.body.email;
             if (req.body.intro) foundUser.intro = req.body.intro;
-             if(req.file && req.file.url) foundUser.picture = req.file.url;
-            if (req.body.phone)foundUser.phone = req.body.phone;
+            if (req.file && req.file.url) foundUser.picture = req.file.url;
+            if (req.body.phone) foundUser.phone = req.body.phone;
             if (req.body.profession) foundUser.profession = req.body.profession;
             if (req.body.gender) foundUser.gender = req.body.gender;
             if (req.body.password) foundUser.password = req.body.password;
 
-            foundUser.save((err,userDataSaved)=>{
-                return res.status(200).json({success:true})
+            foundUser.save((err, userDataSaved) => {
+                return res.status(200).json({ success: true })
             });
-           
-        }else{
-            res.status(404).json({message:"User not found",success:false});
+
+        } else {
+            res.status(404).json({ message: "User not found", success: false });
         }
 
     }).catch(err => res.status(500).json({ error: err }));
 
+})
+
+
+router.put("/disable/:userId", authCheck, async (req, res, next) => {
+    try {
+        const userId = req.params.userId;
+        const accDisabled = req.body.disableAccount;
+        const admin = req.decoded.user.role.toLowerCase() === 'admin';
+        if (!admin) {
+            return res.status(403).json({ message: "You dont have prevlidge to do this operation" });
+        }
+
+        const user = await User.findById(userId);
+        user.accDisabled = accDisabled;
+        await user.save();
+        return res.status(200).json({ success: true })
+
+
+    } catch (err) {
+        res.status(500).json({ error: err });
+    }
 })
 
 
