@@ -122,7 +122,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
 
 
 router.get('/getallpost', authCheck, (req, res, next) => {
-    Post.find({}).populate('tag', 'name').then(posts => {
+    Post.find({}).populate('tag', 'name').populate({path:"owner",populate:{path:"community",select:"name"}}).sort({created:"-1"}).limit(5).then(posts => {
         res.status(200).json({ success: true, posts: posts })
     }).catch(err => {
         res.json(400).json({ success: false, error: err });

@@ -177,7 +177,7 @@ router.get('/members', authCheck, (req, res, next) => {
                     return next(err);
 
                 foundUsers = foundUsers.filter(user => user._id != loggedUser);
-                res.status(200).json({ success: true, users: foundUsers, total: count });
+                res.status(200).json({ success: true, users: foundUsers, total: count -1 });
             })
         })
 

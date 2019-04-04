@@ -56,6 +56,7 @@ router.get("/user/:userId", authCheck, async (req, res, next) => {
         const pageSize = +req.query.pageSize || 5;
         const userId = req.params.userId;
         let totalMsg = await Message.countDocuments();
+        let msgBeforePagination = await Message.find();
         let messages = await Message.find()
             .populate({ path: "sender", select: "name picture gender" })
             .populate({ path: "recepient", select: "name picture gender" })
@@ -63,22 +64,36 @@ router.get("/user/:userId", authCheck, async (req, res, next) => {
             .limit(pageSize)
             .sort({ dateSent: "-1" })
 
+            switch (msgContainer) {
+                case "Inbox":
+                    messages = messages.filter(m => m.recepient._id == userId && m.recepientDeleted == false);
+                    break;
+    
+                case "Outbox":
+                    messages = messages.filter(m => m.sender._id == userId && m.senderDeleted == false);
+                    break;
+    
+                default:
+                    messages = messages.filter(m => m.isRead == false && m.recepientDeleted == false && m.recepient._id == userId);
+    
+            }    
+
         switch (msgContainer) {
             case "Inbox":
-                messages = messages.filter(m => m.recepient._id == userId && m.recepientDeleted == false);
+                msgBeforePagination = msgBeforePagination.filter(m => m.recepient._id == userId && m.recepientDeleted == false);
                 break;
 
             case "Outbox":
-                messages = messages.filter(m => m.sender._id == userId && m.senderDeleted == false);
+                msgBeforePagination = msgBeforePagination.filter(m => m.sender._id == userId && m.senderDeleted == false);
                 break;
 
             default:
-                messages = messages.filter(m => m.isRead == false && m.recepientDeleted == false && m.recepient._id == userId);
+                msgBeforePagination = msgBeforePagination.filter(m => m.isRead == false && m.recepientDeleted == false && m.recepient._id == userId);
 
         }
 
 
-        return res.status(200).json({ message: messages, total: totalMsg });
+        return res.status(200).json({ message: messages, total: msgBeforePagination.length });
 
 
     } catch (err) {
