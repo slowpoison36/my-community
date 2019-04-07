@@ -4,6 +4,7 @@ const Post = require("../models/post");
 const authCheck = require("../middleware/index");
 const User = require("../models/user");
 const Tag = require("../models/tag");
+const Community = require("../models/community");
 const Comment = require("../models/comment");
 
 // const imgUpload = require("../config/cloudinary")(cloudinary, cloudinaryStorage, multer, "Tags",500,500 )
@@ -29,19 +30,21 @@ const parser = multer({ storage: storage });
 
 
 router.post("/create-post", [check(['title', 'description'], "Some fields are missing")],
-    [authCheck, parser.array('tagImage', 5)], (req, res, next) => {
+    [authCheck, parser.array('tagImage', 5)], async (req, res, next) => {
         let result = validationResult(req);
         if (!result.isEmpty()) {
             return res.status(422).json({ err: result.array() })
         }
         const post = new Post();
         const tag = new Tag();
+        const communityId = await Community.findOne({members:req.decoded.user._id});
         post.title = req.body.title;
         post.description = req.body.description;
         post.owner = req.body.user;
+        post.communityId = communityId._id;
 
         if (req.body.tag !== 'Unknown') {
-            if (req.files && req.files.length) {post.postPic.img = req.files[0].url; post.postPic.publicId = req.files[0].public_id}
+            if (req.files && req.files.length) { post.postPic.img = req.files[0].url; post.postPic.publicId = req.files[0].public_id }
             post.tag = req.body.tag;
             post.save((err, savedPost) => {
                 Tag.findById(req.body.tag, (err, foundTag) => {
@@ -49,6 +52,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
                         return next(err)
                     }
                     if (foundTag) {
+                        foundTag.communityId =  communityId._id;
                         foundTag.posts.push(savedPost._id);
                         foundTag.save((err, tagSaved) => {
                             User.findById(post.owner, (err, foundUser) => {
@@ -82,6 +86,7 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
 
                 if (!tags) {
                     tag.name = newTag.trim().replace(/\s+/g, "-");
+                    tag.communityId =  communityId._id;
                     if (tagUrl) { tag.image = tagUrl; }
                     tag.save((err, savedTag) => {
                         if (err) {
@@ -121,12 +126,20 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
     })
 
 
-router.get('/getallpost', authCheck, (req, res, next) => {
-    Post.find({}).populate('tag', 'name').populate({path:"owner",populate:{path:"community",select:"name"}}).sort({created:"-1"}).limit(5).then(posts => {
-        res.status(200).json({ success: true, posts: posts })
-    }).catch(err => {
-        res.json(400).json({ success: false, error: err });
-    })
+router.get('/getallpost', authCheck, async (req, res, next) => {
+    const userId = req.decoded.user._id;
+    const userCommunity = await Community.findOne({ members: userId });
+    Post.find({})
+        .populate('tag', 'name')
+        .populate({ path: "owner", populate: { path: "community", select: "name" } }).sort({ created: "-1" })
+        .sort({created:"-1"})
+        .limit(5)
+        .then(posts => {
+            posts = posts.filter(post => post.owner.community.id == userCommunity._id);
+            return res.status(200).json({ success: true, posts: posts })
+        }).catch(err => {
+            return res.json(400).json({ success: false, error: err });
+        })
 })
 
 router.get('/get-post/:postTitle', authCheck, ((req, res, next) => {
@@ -170,10 +183,11 @@ router.get("/readby/:postId", authCheck, (req, res, next) => {
 })
 
 
-router.get('/tags', authCheck, (req, res, next) => {
+router.get('/tags', authCheck,  async (req, res, next) => {
+    const community = await Community.findOne({members:req.decoded.user._id});
     let perPage = 5
     let pageNum = req.query.pageNum || 0;
-    Tag.find({})
+    Tag.find({communityId:community._id})
         .skip(perPage * pageNum)
         .limit(perPage)
         .sort({ created: "-1" })
@@ -182,7 +196,7 @@ router.get('/tags', authCheck, (req, res, next) => {
                 return next(err);
             }
 
-            Tag.countDocuments((err, totalTags) => {
+            Tag.countDocuments({communityId:community._id},(err, totalTags) => {
                 if (err) {
                     return next(err)
                 }
@@ -194,8 +208,7 @@ router.get('/tags', authCheck, (req, res, next) => {
 
 router.get('/all-tags', authCheck, async (req, res, next) => {
     try {
-        const foundTags = await Tag.find({});
-
+        const foundTags = await Tag.find({}).populate({path:"posts",populate:{path:"owner"}});
         return res.status(200).json({ success: true, tags: foundTags });
     } catch (err) {
         res.status(500).json({ success: false, error: err })
@@ -249,22 +262,24 @@ router.post("/add-comment", authCheck, (req, res, next) => {
 router.put("/feature/:id", authCheck, async (req, res, next) => {
     //1000 * 60 * 60 * 2 = 2 hours
     try {
-        let allPost = await Post.find({$and:[{ featured:true, created: { $gt: Date.now() - 1000 * 60 * 60 * 2, $lte: Date.now() }}]}).sort({created:"-1"})
+        const userId = req.decoded.user._id;
+        const community = await Community.findOne({members:userId});
+        let allPost = await Post.find({ $and: [{ featured: true, created: { $gt: Date.now() - 1000 * 60 * 60 * 2, $lte: Date.now() }, communityId: community._id  }] }).sort({ created: "-1" })
 
         if (!allPost.length) {
             let foundPost = await Post.findById(req.params.id)
-            if(foundPost.featured){
-                return res.status(400).json({success:false,message:"This post has already been featured"});
+            if (foundPost.featured) {
+                return res.status(400).json({ success: false, message: "This post has already been featured" });
             }
             foundPost.created = Date.now();
             foundPost.featured = true;
             let savedPost = await foundPost.save();
             return res.status(201).json({ success: true, message: "Your Post has been featured" })
         }
-           let now = new Date().getMinutes();
-           let time = allPost[0].created.getMinutes();
-           //let diff = (((60* 2) - (now - time))/60).toFixed(2);
-           let diff = ((60* 2) - (now - time));
+        let now = new Date().getMinutes();
+        let time = allPost[0].created.getMinutes();
+        //let diff = (((60* 2) - (now - time))/60).toFixed(2);
+        let diff = ((60 * 2) - (now - time));
 
 
         return res.status(409).json({ success: false, message: `Cannot be featured,other Post is being featured!! Check back again after ${diff} minutes` })
@@ -278,17 +293,25 @@ router.put("/feature/:id", authCheck, async (req, res, next) => {
 
 router.get('/featurepost', authCheck, async (req, res, next) => {
     try {
+        const userId = req.decoded.user._id;
+        const community = await Community.findOne({members:userId});
         const featuredPost = await Post.find({
             $and: [{ featured: true }, {
                 created: {
                     $gt: Date.now() - 1000 * 60 * 60 * 24 * 7,//week
                     $lte: Date.now()
                 }
+            }, {
+                communityId: community._id
             }]
         })
             .sort({ created: "-1" })
             .limit(1)
             .populate('tag', 'name')
+            .populate({ path: "owner", populate: { path: "community", select: "name" } })
+
+        // featuredPost = featuredPost.filter(post => post.owner.community.id == userCommunity._id);
+
         if (featuredPost) {
             return res.status(200).json({ success: true, post: featuredPost[0] })
         }
@@ -309,24 +332,24 @@ router.get('/featurepost', authCheck, async (req, res, next) => {
 router.delete("/:id", authCheck, async (req, res, next) => {
     try {
         const post = await Post.findById(req.params.id);
-        if(post && post.postPic.publicId){
+        if (post && post.postPic.publicId) {
             await cloudinary.v2.uploader.destroy(post.postPic.publicId);
-        } 
-        
+        }
+
         await Comment.deleteMany({ post: req.params.id });
         await Post.findByIdAndDelete(req.params.id);
-         Tag.findOne({posts:req.params.id},(err,tag)=>{
-                 tag.posts.remove(req.params.id);
-                 tag.save((err)=>{
-                      if(err){
-                          return next(err);
-                      }
+        Tag.findOne({ posts: req.params.id }, (err, tag) => {
+            tag.posts.remove(req.params.id);
+            tag.save((err) => {
+                if (err) {
+                    return next(err);
+                }
 
-                      return res.status(200).json({ success: true });
-                 })
-         })
+                return res.status(200).json({ success: true });
+            })
+        })
 
-      
+
 
     } catch (err) {
         res.status(500).json({ error: err });

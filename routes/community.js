@@ -25,16 +25,16 @@ const parser = multer({ storage: storage });
 
 router.post('/create', 
 [validator.check("name,location").withMessage("This is required field"),
- validator.body("image").custom((value,{req})=>{
-     const type = ['jpg','png','jpeg']
-      type.forEach(kind=> {
-          if(!value.endsWith(kind)){
-               throw new Error("File format not supported");
-          }
-      })
- })
+//  validator.body("image").custom((value,{req})=>{
+//      const type = ['jpg','png','jpeg']
+//       type.forEach(kind=> {
+//           if(!value.endsWith(kind)){
+//                throw new Error("File format not supported");
+//           }
+//       })
+//  })
 ]
-, [authCheck,parser.single("image")], (req, res, next) => {
+, parser.single("image"), (req, res, next) => {
     const result = validator.validationResult(req);
     if(!result.isEmpty()) {
          return res.status(422).json({err:result.array()});
@@ -45,7 +45,7 @@ router.post('/create',
     community.description = req.body.description;
     community.image.publicId = req.file.public_id
     community.image.img = req.file.url
-    community.members.push(req.decoded.user._id);
+    // community.members.push(req.decoded.user._id);
     
     community.save((err,savedCommunity)=>{
         if(!err){

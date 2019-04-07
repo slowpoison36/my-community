@@ -115,12 +115,14 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
         .populate("community")
         .populate("posts")
         .then(foundUser => {
-            if(foundUser.accDisabled) {
-                  return res.status(403).json({success:false,message:"Sorry!,Your account has been disabled"})
-            }
+        
             if (!foundUser) {
                 return res.status(404).json({ message: "User not found" })
-            } else {
+            } 
+            if(foundUser.accDisabled) {
+                return res.status(403).json({success:false,message:"Sorry!,Your account has been disabled"})
+          }
+            else {
                 const passwordCheck = foundUser.comparePassword(req.body.password);
                 if (!passwordCheck) {
                     return res.status(400).json({ success: false, message: "Invalid Password" });
@@ -157,13 +159,15 @@ router.get("/verify/:token", (req, res, next) => {
 
 
 //gets all the users
-router.get('/members', authCheck, (req, res, next) => {
+router.get('/members', authCheck, async(req, res, next) => {
     let loggedUser = req.decoded.user._id
+    let communityId = await Community.findOne({members:loggedUser});
     let pageNum = req.query.pageNum || 0;
-    let pageSize = 6;
-    User.find({})
+    let pageSize = 5;
+    User.find({_id:{$ne:{_id:loggedUser}},community:communityId._id})
         .skip(pageSize * pageNum)
         .limit(pageSize)
+        .sort({created:"-1"})
         .populate("posts")
         .populate("community")
         .select(['-password', '-tokenString'])
@@ -172,13 +176,17 @@ router.get('/members', authCheck, (req, res, next) => {
                 return next(err);
             }
 
+           if(foundUsers.length) {
             User.countDocuments((err, count) => {
                 if (err)
                     return next(err);
 
-                foundUsers = foundUsers.filter(user => user._id != loggedUser);
-                res.status(200).json({ success: true, users: foundUsers, total: count -1 });
+                // foundUsers = foundUsers.filter(user => user._id != loggedUser);
+                res.status(200).json({ success: true, users: foundUsers, total: count});
             })
+           } else{
+               res.status(404).json({success:false,message:"No memebers available"})
+           }
         })
 
 })
