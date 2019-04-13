@@ -129,21 +129,22 @@ router.post("/create-post", [check(['title', 'description'], "Some fields are mi
 router.get('/getallpost', authCheck, async (req, res, next) => {
     const userId = req.decoded.user._id;
     const userCommunity = await Community.findOne({ members: userId });
-    Post.find({})
+    Post.find({communityId:userCommunity.id})
         .populate('tag', 'name')
-        .populate({ path: "owner", populate: { path: "community", select: "name" } }).sort({ created: "-1" })
+        .populate({ path: "owner", populate: { path: "community", select: "name" } })
         .sort({created:"-1"})
         .limit(5)
         .then(posts => {
-            posts = posts.filter(post => post.owner.community.id == userCommunity._id);
             return res.status(200).json({ success: true, posts: posts })
         }).catch(err => {
             return res.json(400).json({ success: false, error: err });
         })
 })
 
-router.get('/get-post/:postTitle', authCheck, ((req, res, next) => {
-    Post.findOne({ title: req.params.postTitle })
+router.get('/get-post/:postTitle', authCheck, async (req, res, next) => {
+    const userId = req.decoded.user._id;
+    const userCommunity = await Community.findOne({ members: userId });
+    Post.findOne({ title: req.params.postTitle,communityId:userCommunity.id })
         .populate('owner')
         .populate({ path: "comments", populate: { path: "user" } })
         .then(foundPost => {
@@ -153,7 +154,7 @@ router.get('/get-post/:postTitle', authCheck, ((req, res, next) => {
                 return res.status(404).json({ success: false, message: "No post found" });
             }
         }).catch(err => res.status(500).json({ error: err }));
-}))
+})
 
 router.get("/readby/:postId", authCheck, (req, res, next) => {
     let postId = req.params.postId;
@@ -187,7 +188,7 @@ router.get('/tags', authCheck,  async (req, res, next) => {
     const community = await Community.findOne({members:req.decoded.user._id});
     let perPage = 5
     let pageNum = req.query.pageNum || 0;
-    Tag.find({communityId:community._id})
+    Tag.find({communityId:community.id})
         .skip(perPage * pageNum)
         .limit(perPage)
         .sort({ created: "-1" })
@@ -196,7 +197,7 @@ router.get('/tags', authCheck,  async (req, res, next) => {
                 return next(err);
             }
 
-            Tag.countDocuments({communityId:community._id},(err, totalTags) => {
+            Tag.countDocuments({communityId:community.id},(err, totalTags) => {
                 if (err) {
                     return next(err)
                 }
@@ -208,16 +209,19 @@ router.get('/tags', authCheck,  async (req, res, next) => {
 
 router.get('/all-tags', authCheck, async (req, res, next) => {
     try {
-        const foundTags = await Tag.find({}).populate({path:"posts",populate:{path:"owner"}});
+        const userId = req.decoded.user._id;
+        const userCommunity = await Community.findOne({ members: userId });
+        const foundTags = await Tag.find({communityId:userCommunity.id}).populate({path:"posts",populate:{path:"owner"}});
         return res.status(200).json({ success: true, tags: foundTags });
     } catch (err) {
         res.status(500).json({ success: false, error: err })
     }
 })
 
-router.get('/tag/:name', authCheck, (req, res, next) => {
-
-    Tag.findOne({ name: req.params.name })
+router.get('/tag/:name', authCheck, async (req, res, next) => {
+    const userId = req.decoded.user._id;
+    const userCommunity = await Community.findOne({ members: userId });
+    Tag.findOne({ name: req.params.name, communityId:userCommunity.id })
         .populate({ path: "posts", populate: { path: "owner", select: "name -_id" } })
         .populate({
             path: 'posts',
@@ -302,7 +306,7 @@ router.get('/featurepost', authCheck, async (req, res, next) => {
                     $lte: Date.now()
                 }
             }, {
-                communityId: community._id
+                communityId: community.id
             }]
         })
             .sort({ created: "-1" })

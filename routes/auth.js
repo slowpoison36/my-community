@@ -109,7 +109,7 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
     if (!result.isEmpty()) {
         return res.status(422).json({ error: result.array() });
     }
-    let name, email;
+    let name="", email="";
     req.body.name.indexOf("@") > -1 ? email = req.body.name : name = req.body.name;
     User.findOne({ $or: [{ name: name }, { email: email }] })
         .populate("community")
@@ -164,7 +164,7 @@ router.get('/members', authCheck, async(req, res, next) => {
     let communityId = await Community.findOne({members:loggedUser});
     let pageNum = req.query.pageNum || 0;
     let pageSize = 5;
-    User.find({_id:{$ne:{_id:loggedUser}},community:communityId._id})
+    User.find({_id:{$ne:{_id:loggedUser}},community:communityId.id})
         .skip(pageSize * pageNum)
         .limit(pageSize)
         .sort({created:"-1"})
@@ -177,7 +177,7 @@ router.get('/members', authCheck, async(req, res, next) => {
             }
 
            if(foundUsers.length) {
-            User.countDocuments((err, count) => {
+            User.countDocuments({community:communityId.id},(err, count) => {
                 if (err)
                     return next(err);
 
