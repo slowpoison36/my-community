@@ -251,7 +251,7 @@ router.delete("/admin/removeUser/:id", authCheck, async (req, res, next) => {
 
 router.get('/member/:id', authCheck, (req, res, next) => {
     User.findOne({ _id: req.params.id })
-        .populate({ path: "posts", populate: { path: "tag" } })
+        .populate({ path: "posts", options:{sort :{created:"-1"}}, populate: { path: "tag" } })
         .populate("community")
         .populate("tag")
         .select(['-password', '-tokenString'])

@@ -198,7 +198,6 @@ router.get('/tags', authCheck,  async (req, res, next) => {
         })
         .skip(perPage * pageNum)
         .limit(perPage)
-        .sort({ created: "-1" })
         .exec((err, foundTags) => {
             if (err) {
                 return next(err);
@@ -218,7 +217,8 @@ router.get('/all-tags', authCheck, async (req, res, next) => {
     try {
         const userId = req.decoded.user._id;
         const userCommunity = await Community.findOne({ members: userId });
-        const foundTags = await Tag.find().populate({path:"posts",populate:{path:"owner"}});
+        const foundTags = await Tag.find({communityId:userCommunity.id})
+              .populate({path:"posts",populate:{path:"owner"}});
         return res.status(200).json({ success: true, tags: foundTags });
     } catch (err) {
         res.status(500).json({ success: false, error: err })
