@@ -11,6 +11,9 @@ const Community = require("../models/community")
 
 const User = require("../models/user");
 const authCheck = require("../middleware/index");
+const Post = require("../models/post");
+const Message = require("../models/message");
+const Comment = require("../models/comment");
 
 const transporter = nodemailer.createTransport(sendGridNodemailer({
     auth: {
@@ -109,19 +112,19 @@ router.post("/login", [check("name", "Name is required"), check("password").isLe
     if (!result.isEmpty()) {
         return res.status(422).json({ error: result.array() });
     }
-    let name="", email="";
+    let name = "", email = "";
     req.body.name.indexOf("@") > -1 ? email = req.body.name : name = req.body.name;
     User.findOne({ $or: [{ name: name }, { email: email }] })
         .populate("community")
         .populate("posts")
         .then(foundUser => {
-        
+
             if (!foundUser) {
                 return res.status(404).json({ message: "User not found" })
-            } 
-            if(foundUser.accDisabled) {
-                return res.status(403).json({success:false,message:"Sorry!,Your account has been disabled"})
-          }
+            }
+            if (foundUser.accDisabled) {
+                return res.status(403).json({ success: false, message: "Sorry!,Your account has been disabled" })
+            }
             else {
                 const passwordCheck = foundUser.comparePassword(req.body.password);
                 if (!passwordCheck) {
@@ -156,18 +159,16 @@ router.get("/verify/:token", (req, res, next) => {
             });
         })
 })
-
-
-//gets all the users
-router.get('/members', authCheck, async(req, res, next) => {
+//gets all the users based on the particular community
+router.get('/members', authCheck, async (req, res, next) => {
     let loggedUser = req.decoded.user._id
-    let communityId = await Community.findOne({members:loggedUser});
+    let communityId = await Community.findOne({ members: loggedUser });
     let pageNum = req.query.pageNum || 0;
     let pageSize = 5;
-    User.find({_id:{$ne:{_id:loggedUser}},community:communityId.id})
+    User.find({ _id: { $ne: { _id: loggedUser } }, community: communityId.id })
         .skip(pageSize * pageNum)
         .limit(pageSize)
-        .sort({created:"-1"})
+        .sort({ created: "-1" })
         .populate("posts")
         .populate("community")
         .select(['-password', '-tokenString'])
@@ -176,19 +177,74 @@ router.get('/members', authCheck, async(req, res, next) => {
                 return next(err);
             }
 
-           if(foundUsers.length) {
-            User.countDocuments({community:communityId.id},(err, count) => {
-                if (err)
-                    return next(err);
-
-                // foundUsers = foundUsers.filter(user => user._id != loggedUser);
-                res.status(200).json({ success: true, users: foundUsers, total: count});
-            })
-           } else{
-               res.status(404).json({success:false,message:"No memebers available"})
-           }
+            if (foundUsers.length) {
+                User.countDocuments({ community: communityId.id }, (err, count) => {
+                    if (err)
+                        return next(err);
+                    res.status(200).json({ success: true, users: foundUsers, total: count });
+                })
+            } else {
+                res.status(404).json({ success: false, message: "No memebers available" })
+            }
         })
 
+})
+//get all members regardless of the community
+
+router.get('/admin/members', authCheck, async (req, res, next) => {
+    let loggedUser = req.decoded.user._id
+    let pageNum = req.query.pageNum || 0;
+    let pageSize = 10;
+    User.find({ _id: { $ne: { _id: loggedUser } } })
+        .skip(pageSize * pageNum)
+        .limit(pageSize)
+        .sort({ created: "-1" })
+        .populate("posts")
+        .populate("community")
+        .select(['-password', '-tokenString'])
+        .exec((err, foundUsers) => {
+            if (err) {
+                return next(err);
+            }
+
+            if (foundUsers.length) {
+                User.countDocuments((err, count) => {
+                    if (err)
+                        return next(err);
+                    res.status(200).json({ success: true, users: foundUsers, total: count });
+                })
+            } else {
+                res.status(404).json({ success: false, message: "No memebers available" })
+            }
+        })
+
+})
+
+//delete user based on their id
+
+router.delete("/admin/removeUser/:id", authCheck, async (req, res, next) => {
+    try {
+        const userId = req.params.id;
+        const isAdmin = req.decoded.user.role == 'admin';
+        console.log(isAdmin);
+        if (isAdmin) {
+            await User.findByIdAndRemove(userId);
+           const community = await Community.findOne({members:userId});
+           community.members.remove(userId);
+           await community.save();
+           await Post.deleteMany({owner: userId})
+           await Message.deleteMany({sender:userId});
+           await Message.deleteMany({recepient: userId})
+           await Comment.deleteMany({user:userId});
+
+            return res.status(200).json({ success: true, message: "User successfully deleted" });
+        } else {
+            res.status(401).json({ message: "Not enough Prevlidge" });
+        }
+    }
+    catch (err) {
+        return res.status(500).json({ error: err });
+    }
 })
 
 //get user based on the id passed

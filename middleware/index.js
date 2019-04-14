@@ -15,8 +15,10 @@ module.exports = function (req, res, next) {
                     if (err) {
                         return next(err);
                     }
-                    foundUser.lastActive = Date.now();
-                    foundUser.save();
+                    if (foundUser) {
+                        foundUser.lastActive = Date.now();
+                        foundUser.save();
+                    }
                     req.decoded = decoded;
                     next();
                 })
