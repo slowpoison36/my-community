@@ -37,4 +37,10 @@ app.get("*",(req,res,next)=>{
 })
 
 
-app.listen(PORT, () => console.log("Server has started"));
+const server = app.listen(PORT, () => console.log("Server has started"));
+
+const io = require("./socket/socket").init(server);
+io.on("connection",socket=>{
+       console.log("Socket started");
+})
+

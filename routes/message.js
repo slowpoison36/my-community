@@ -2,6 +2,7 @@ const router = require("express").Router();
 const Message = require("../models/message");
 const User = require("../models/user");
 const authCheck = require("../middleware/index");
+const io = require("../socket/socket");
 
 router.post("/create/:userId", authCheck, async (req, res, next) => {
     try {
@@ -23,7 +24,7 @@ router.post("/create/:userId", authCheck, async (req, res, next) => {
             .populate({ path: "recepient", select: "name picture gender" })
         await sender.save();
         await recepient.save();
-
+        io.getIO().emit('message',{action:"createMessage", message : msgTosent})
         return res.status(201).json({ success: true, message: msgTosent })
     } catch (err) {
         res.status(500).json({ success: false, error: err });
